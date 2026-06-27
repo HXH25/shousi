@@ -1,0 +1,461 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>手撕文本生成器</title>
+  <style>
+    :root {
+      --bg: #f5f1e8;
+      --paper: #fffdf7;
+      --ink: #1f1f1f;
+      --muted: #6f6658;
+      --line: #ded3c2;
+      --accent: #7a1f1f;
+      --accent-2: #b98b4b;
+      --shadow: 0 18px 50px rgba(54, 39, 20, 0.14);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 20% 10%, rgba(185, 139, 75, 0.16), transparent 34%),
+        radial-gradient(circle at 80% 0%, rgba(122, 31, 31, 0.12), transparent 30%),
+        linear-gradient(135deg, #f8f4ec, var(--bg));
+      font-family: "Noto Serif SC", "Songti SC", "SimSun", serif;
+    }
+
+    header {
+      padding: 40px 20px 16px;
+      text-align: center;
+    }
+
+    .site-title {
+      margin: 0;
+      font-size: clamp(32px, 5vw, 58px);
+      letter-spacing: 0.12em;
+      color: var(--accent);
+      font-weight: 900;
+    }
+
+    .subtitle {
+      margin: 12px auto 0;
+      max-width: 760px;
+      color: var(--muted);
+      line-height: 1.8;
+      font-size: 15px;
+    }
+
+    main {
+      width: min(1180px, calc(100% - 32px));
+      margin: 22px auto 44px;
+      display: grid;
+      grid-template-columns: 390px 1fr;
+      gap: 22px;
+      align-items: start;
+    }
+
+    .panel, .output-card {
+      background: rgba(255, 253, 247, 0.92);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+    }
+
+    .panel {
+      padding: 22px;
+      position: sticky;
+      top: 18px;
+    }
+
+    .panel h2, .output-card h2 {
+      margin: 0 0 16px;
+      font-size: 21px;
+      color: var(--accent);
+    }
+
+    label {
+      display: block;
+      margin: 14px 0 7px;
+      font-weight: 700;
+      color: #3a2a1c;
+    }
+
+    .hint {
+      display: block;
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+      font-weight: 400;
+    }
+
+    input, textarea {
+      width: 100%;
+      border: 1px solid #cfc1ad;
+      background: #fffaf1;
+      color: var(--ink);
+      border-radius: 10px;
+      padding: 11px 12px;
+      font-family: inherit;
+      font-size: 15px;
+      outline: none;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    input:focus, textarea:focus {
+      border-color: var(--accent-2);
+      box-shadow: 0 0 0 3px rgba(185, 139, 75, 0.18);
+    }
+
+    .check-row {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      margin-top: 14px;
+      color: #3a2a1c;
+      line-height: 1.55;
+      font-weight: 700;
+    }
+
+    .check-row input {
+      width: auto;
+      margin-top: 4px;
+      accent-color: var(--accent);
+    }
+
+    .button-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 12px;
+      padding: 12px 14px;
+      cursor: pointer;
+      font-family: inherit;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      transition: transform 0.12s ease, filter 0.12s ease;
+    }
+
+    button:hover { transform: translateY(-1px); filter: brightness(1.02); }
+    button:active { transform: translateY(0); }
+
+    .primary {
+      color: white;
+      background: linear-gradient(135deg, #8f2525, #631717);
+    }
+
+    .secondary {
+      color: #4b2f16;
+      background: #ead8bd;
+    }
+
+    .wide { grid-column: 1 / -1; }
+
+    .output-card {
+      padding: 22px;
+      min-height: 720px;
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 14px;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .toolbar h2 { margin: 0; }
+
+    .mini-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .mini-buttons button {
+      padding: 9px 12px;
+      font-size: 13px;
+    }
+
+    textarea#result {
+      min-height: 690px;
+      resize: vertical;
+      white-space: pre-wrap;
+      line-height: 1.9;
+      font-size: 16px;
+      background:
+        linear-gradient(rgba(255,250,241,0.96), rgba(255,250,241,0.96)),
+        repeating-linear-gradient(to bottom, transparent 0, transparent 30px, rgba(122,31,31,0.07) 31px);
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 24px;
+      transform: translateX(-50%) translateY(20px);
+      padding: 10px 16px;
+      border-radius: 999px;
+      background: rgba(31, 31, 31, 0.9);
+      color: #fff;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 14px;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    footer {
+      width: min(1180px, calc(100% - 32px));
+      margin: 0 auto 36px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.8;
+      text-align: center;
+    }
+
+    @media (max-width: 860px) {
+      main { grid-template-columns: 1fr; }
+      .panel { position: static; }
+      textarea#result { min-height: 520px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1 class="site-title">手撕文本生成器</h1>
+    <p class="subtitle">
+      输入 5 个关键词，自动把固定檄文模板替换成新的“手撕 XX 指南”。这是一个纯前端页面，可直接作为 GitHub Pages 的 <code>index.html</code> 部署。
+    </p>
+  </header>
+
+  <main>
+    <section class="panel" aria-label="关键词设置">
+      <h2>关键词设置</h2>
+
+      <label for="target">辱骂对象
+        <span class="hint">替换模板中的“新雅书院”。标题会自动写成“手撕 + 对象简称 + 指南”。</span>
+      </label>
+      <input id="target" value="新雅书院" />
+
+      <label for="field">学习领域
+        <span class="hint">替换模板中的“通识教育”。</span>
+      </label>
+      <input id="field" value="通识教育" />
+
+      <label for="praiseObject">夸奖对象
+        <span class="hint">替换模板中的“北大元培”。</span>
+      </label>
+      <input id="praiseObject" value="北大元培" />
+
+      <label for="badSchool">辱骂学校
+        <span class="hint">替换模板中的“清华”。例如填“某校”后，“清华大学”会变成“某校大学”。</span>
+      </label>
+      <input id="badSchool" value="清华" />
+
+      <label for="goodSchool">夸奖学校
+        <span class="hint">替换模板中的“北大”。例如填“某大”后，“北大元培”会按夸奖对象字段单独处理。</span>
+      </label>
+      <input id="goodSchool" value="北大" />
+
+      <label class="check-row" for="smartMode">
+        <input id="smartMode" type="checkbox" checked />
+        <span>顺手替换简称<br><span class="hint">额外替换“新雅”“元培学院”“元培”等简称，使生成结果更自然。不勾选时只严格替换上面 5 个词。</span></span>
+      </label>
+
+      <div class="button-row">
+        <button class="primary wide" id="generateBtn">生成文本</button>
+        <button class="secondary" id="sampleBtn">填入示例</button>
+        <button class="secondary" id="resetBtn">恢复默认</button>
+      </div>
+    </section>
+
+    <section class="output-card" aria-label="生成结果">
+      <div class="toolbar">
+        <h2>生成结果</h2>
+        <div class="mini-buttons">
+          <button class="secondary" id="copyBtn">复制</button>
+          <button class="secondary" id="downloadBtn">下载 TXT</button>
+          <button class="secondary" id="printBtn">打印 / 存 PDF</button>
+        </div>
+      </div>
+      <textarea id="result" spellcheck="false"></textarea>
+    </section>
+  </main>
+
+  <footer>
+    说明：本页面仅用于文本模板实验与戏仿写作。所有内容均在浏览器本地生成，不会上传到服务器。
+  </footer>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const rawTemplate = `手撕{{TARGET_SHORT}}指南
+一、新雅书院的存在是一个错误
+新雅书院的存在就是一个错误，通识教育这件事情不应该由清华来做。关于通识教育的各类说法层出不穷，但是有一些共识是存在的，即通识教育通过文理基础学科的训练来拓宽人的视野，使人发现自我、探索自我，从教育中寻找自我的可能性与真正的追求。这意味着，通识教育的承担者，应当是具有浓厚的文理传统和人文底蕴的高校，而不是像清华这种以工科为本的高校。清华的人文传统已经被 1952 年院系调整斩断，在那次调整中其理科也仅仅保留了教学人员而裁撤了科研人员。事实上，今天的清华根本没有实力开展真正的通识教育，文科课程甚至需要从北大借调老师。在这种情况下，放弃北大元培选择清华新雅完全是舍近求远的表现，更何况通识教育需要的是一种底蕴，绝不是借调两个老师、仓促开设几门课程就能完成的。
+由此观之，新雅书院的成立，完全是清华为了与北大元培学院争抢生源而作出的决策，完全不是从“以人为本”的教育基本点出发的，而是一种不惜牺牲中国最好的学生来拉高招生指标的无耻行径。在明知无力承担通识教育的情况下设立这样的所谓书院，不具有作为教育者的基本诚意，对元培冷嘲热讽了十余年的清华大学，却东施效颦地搞出这么一个不论不类的所谓书院，实在是对自己的莫大嘲讽。
+
+二、新雅书院的编制是一团乱麻
+新雅书院的学生在大学二年级需要进入选定专业的院系，改变编制。这实际上对学生带来了极大的混乱——一方面，新雅书院由于只培养学生一年，而不具有对学生的长期发展负责的激励；另一方面，接收院系在清华基于工科传统的、强烈的院系壁垒和保护主义文化之中，不可能对新雅学生施以平等待遇。学生在选定专业后，一方面失去了与新雅同学的有效联系，一方面难以融入新的集体中，出于进退两难的尴尬境地。清华多年来攻击元培的“舅舅不疼、姥姥不爱”的窘境，生动地印证在新雅自己身上。
+元培学院经过 16 年发展，其现状与今天的新雅书院有着云泥之别。元培学院所有学生在本科期间从不改变编制，使得学院有更强的从一而终的负责意识；元培学院有着活跃的公民社会和极强的自组织能力，在学术方面，有学生学术学会（“学学学”）为各专业方向对接学术资源；在生活方面，有书院委员会负责建设元培住宿书院的活动空间；在监督方面，有《见闻录》这样的媒体实时反思元培改革进程中的种种现状。由公民社会构建起的通识教育住宿书院内部的活力与凝聚力，远非新雅所能比拟。依托于北大深厚的文理传统和人文底蕴，元培学生在十几年中已经以自身的出色表现打垮了一切院系保护主义的高墙，赢得了北京大学各院系的普遍尊重，清华在这方面的批评纯属无中生有。
+
+三、新雅书院的安排是一场灾难
+新雅书院照搬美式通识教育实践，在进入专业学习之前只学习通识教育课程。且不论清华开出的这些课程可怜的质量，这意味着同学们再进入二年级之后，需要在没有一年级专业基础的前提下与对应院系同学一起开始第二年学习。面对这方面的质疑，清华的回应竟然是让新雅学生“到研究生阶段补基础课”。此等“先起高楼再打地基”的荒谬说法，竟出自中国第二好的大学，实在令人哭笑不得。究其本质，这是因为新雅书院虽有通识教育的设想，但无法摆脱清华大学根深蒂固的专业教育大环境，正是这种无法调和的矛盾，迫使清华想出了这种不是办法的办法。
+元培学院将通识教育贯穿于本科四年当中，采取温和而符合中国实践特点的通识教育方案，让学生在大学之初就进入一个专业的学习，这才是立足于中国现实、事实求是的做法。比之于新雅书院简单粗暴地对接大一的通识教育与此后的专业教育，元培学院耐心的为每一个专业方向的培养方案做出了符合同时教育精神又满足专业水准要求的精细调整，此间孰是孰非，稍有常识的人就能看出。
+
+四、新雅书院的自由是一个骗局
+新雅书院不存在所谓自由。首先，很大一部分同学是带着专业进入新雅的，即在入学之初就预定了专业，例如经管，而没有转换的空间；与此相比，元培学院并不会在招生时预定任何一个学生的专业，并且入学之后可以随时转换。新雅书院第一年的通识教育课程完全受限，必须按照要求，毫无自由可言；元培学院通识教育体系则兼备规范与灵活，且由学生学术学会逐年调整，与时俱进。新雅书院同学一旦选定专业即进入特定专业，其跨院系选课、转专业、延期毕业等限制完全与对应专业相同，而元培学院学生无论是否选择专业，在选课方面都拥有普遍最惠待遇、转专业完全自由、学制依旧灵活。由此观之，新雅书院无非是用一个铁笼取代另一个铁笼，始终无法跳出清华将所有学生同质化的机械论的教育追求，其所谓的自由完全是一场骗局。清华大学竟然在长达十几年内以各种方式抹黑北大元培的自由选择，其贼喊捉贼之嘴脸，令人作呕。`;
+
+    const $ = (id) => document.getElementById(id);
+
+    function escapeRegExp(str) {
+      return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    }
+
+    function replaceAllSafe(text, from, to) {
+      if (!from) return text;
+      return text.replace(new RegExp(escapeRegExp(from), "g"), to);
+    }
+
+    function shortName(name) {
+      return name
+        .replace(/(书院|学院|大学|学校|院系)$/g, "")
+        .trim() || name;
+    }
+
+    function collegeName(name) {
+      if (/(书院|学院)$/.test(name)) return name;
+      return name + "学院";
+    }
+
+    function generate() {
+      const target = $("target").value.trim() || "新雅书院";
+      const field = $("field").value.trim() || "通识教育";
+      const praiseObject = $("praiseObject").value.trim() || "北大元培";
+      const badSchool = $("badSchool").value.trim() || "清华";
+      const goodSchool = $("goodSchool").value.trim() || "北大";
+      const smartMode = $("smartMode").checked;
+
+      const targetShort = shortName(target);
+      const praiseCollege = collegeName(praiseObject);
+      const praiseShort = shortName(praiseObject).replace(/^北大/, "");
+
+      let text = rawTemplate.replace(/{{TARGET_SHORT}}/g, targetShort);
+
+      // 先处理长词，避免“北大元培”先被“北大”拆开。
+      text = replaceAllSafe(text, "北大元培", praiseObject);
+      text = replaceAllSafe(text, "新雅书院", target);
+      text = replaceAllSafe(text, "通识教育", field);
+
+      if (smartMode) {
+        text = replaceAllSafe(text, "元培学院", praiseCollege);
+        text = replaceAllSafe(text, "元培住宿书院", praiseCollege + "住宿书院");
+        text = replaceAllSafe(text, "元培学生", praiseObject + "学生");
+        text = replaceAllSafe(text, "元培的", praiseObject + "的");
+        text = replaceAllSafe(text, "新雅数院", targetShort + "数院");
+        text = replaceAllSafe(text, "新雅学生", targetShort + "学生");
+        text = replaceAllSafe(text, "新雅同学", targetShort + "同学");
+        text = replaceAllSafe(text, "新雅自己", targetShort + "自己");
+        text = replaceAllSafe(text, "新雅的", targetShort + "的");
+        text = replaceAllSafe(text, "进入新雅", "进入" + targetShort);
+      }
+
+      // 学校名最后替换，避免影响夸奖对象字段。
+      text = replaceAllSafe(text, "清华", badSchool);
+      text = replaceAllSafe(text, "北大", goodSchool);
+
+      // 清理智能替换中可能出现的重复学院。
+      text = text.replace(new RegExp(escapeRegExp(praiseObject + "学院学院"), "g"), praiseObject + "学院");
+      text = text.replace(new RegExp(escapeRegExp(target + "书院"), "g"), target);
+
+      $("result").value = text;
+    }
+
+    function showToast(message) {
+      const toast = $("toast");
+      toast.textContent = message;
+      toast.classList.add("show");
+      window.setTimeout(() => toast.classList.remove("show"), 1600);
+    }
+
+    async function copyResult() {
+      const text = $("result").value;
+      if (!text) return showToast("还没有生成文本");
+      try {
+        await navigator.clipboard.writeText(text);
+        showToast("已复制到剪贴板");
+      } catch (err) {
+        $("result").select();
+        document.execCommand("copy");
+        showToast("已复制");
+      }
+    }
+
+    function downloadTxt() {
+      const text = $("result").value;
+      if (!text) return showToast("还没有生成文本");
+      const target = $("target").value.trim() || "新雅书院";
+      const filename = `手撕${shortName(target)}指南.txt`;
+      const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      showToast("已开始下载");
+    }
+
+    function resetDefaults() {
+      $("target").value = "新雅书院";
+      $("field").value = "通识教育";
+      $("praiseObject").value = "北大元培";
+      $("badSchool").value = "清华";
+      $("goodSchool").value = "北大";
+      $("smartMode").checked = true;
+      generate();
+    }
+
+    function fillSample() {
+      $("target").value = "通班";
+      $("field").value = "计算机教育";
+      $("praiseObject").value = "贵系";
+      $("badSchool").value = "北大";
+      $("goodSchool").value = "清华";
+      $("smartMode").checked = true;
+      generate();
+    }
+
+    $("generateBtn").addEventListener("click", generate);
+    $("copyBtn").addEventListener("click", copyResult);
+    $("downloadBtn").addEventListener("click", downloadTxt);
+    $("printBtn").addEventListener("click", () => window.print());
+    $("resetBtn").addEventListener("click", resetDefaults);
+    $("sampleBtn").addEventListener("click", fillSample);
+
+    ["target", "field", "praiseObject", "badSchool", "goodSchool", "smartMode"].forEach(id => {
+      $(id).addEventListener("input", generate);
+      $(id).addEventListener("change", generate);
+    });
+
+    generate();
+  </script>
+</body>
+</html>
